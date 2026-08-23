@@ -9,16 +9,20 @@ import { Card } from "@/components/ui/Card";
 import { DiffViewer } from "@/components/ui/DiffViewer";
 import { WebShootButton } from "@/components/ui/WebShootButton";
 import { SpinneretGlyph } from "@/components/ui/SpinneretGlyph";
+import { DiffViewerSkeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { DriftEventModel } from "@/types";
 
 export default function DiffApprovalPage() {
   const params = useParams();
   const id = params?.id as string;
   const router = useRouter();
+  const { toast } = useToast();
 
   const [event, setEvent] = useState<DriftEventModel | null>(null);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
   const fetchEvent = async () => {
@@ -41,29 +45,41 @@ export default function DiffApprovalPage() {
   }, [id]);
 
   const handleApprove = async () => {
-    setProcessing(true);
+    setApproving(true);
     setResultMessage(null);
     try {
       const res = await fetch(`/api/drift-events/${id}/approve`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
         setResultMessage("✅ Fix approved! Collector template updated and re-verified successfully.");
+        toast.resolved(
+          "Self-Healing Patch Approved",
+          `Extraction template patch for field "${event?.fieldName}" applied to collector. Verified healthy.`,
+          {
+            details: [
+              `Event ID: ${id}`,
+              `Collector: ${event?.collectorId}`,
+            ],
+          }
+        );
         await fetchEvent();
         setTimeout(() => {
           router.push(`/collectors/${event?.collectorId}`);
-        }, 1500);
+        }, 1200);
       } else {
         setResultMessage(`❌ Approval failed: ${data.error}`);
+        toast.error("Approval Failed", data.error || "Failed to apply fix template.");
       }
     } catch (err: any) {
       setResultMessage(`❌ Error: ${err.message}`);
+      toast.error("Approval Error", err.message || "An unexpected error occurred.");
     } finally {
-      setProcessing(false);
+      setApproving(false);
     }
   };
 
   const handleReject = async () => {
-    setProcessing(true);
+    setRejecting(true);
     setResultMessage(null);
     try {
       const res = await fetch(`/api/drift-events/${id}/reject`, {
@@ -74,19 +90,30 @@ export default function DiffApprovalPage() {
       const data = await res.json();
       if (data.success) {
         setResultMessage("Proposed diff rejected.");
+        toast.info(
+          "AI Proposal Rejected",
+          `The proposed fix for field "${event?.fieldName}" has been discarded.`
+        );
         await fetchEvent();
       } else {
         setResultMessage(`❌ Rejection failed: ${data.error}`);
+        toast.error("Rejection Failed", data.error || "Could not reject proposal.");
       }
     } catch (err: any) {
       setResultMessage(`❌ Error: ${err.message}`);
+      toast.error("Rejection Error", err.message || "An unexpected error occurred.");
     } finally {
-      setProcessing(false);
+      setRejecting(false);
     }
   };
 
   if (loading) {
-    return <Card style={{ padding: "3rem", textAlign: "center" }}>Loading AI proposal...</Card>;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "2rem", maxWidth: "960px", margin: "0 auto" }}>
+        <DiffViewerSkeleton />
+        <DiffViewerSkeleton />
+      </div>
+    );
   }
 
   if (!event) {
@@ -101,10 +128,10 @@ export default function DiffApprovalPage() {
   }
 
   const isPending = event.status === "pending_approval";
+  const isProcessing = approving || rejecting;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem", maxWidth: "960px", margin: "0 auto" }}>
-
       {/* ─── Header — calmer chrome, just a spinneret inline marker ─── */}
       <div>
         {/* Back link with tiny spinneret glyph */}
@@ -204,7 +231,7 @@ export default function DiffApprovalPage() {
         </div>
       </Card>
 
-      {/* ─── Proposed Diff Viewer — content stays utilitarian, only chrome changes ─── */}
+      {/* ─── Proposed Diff Viewer ─── */}
       <Card
         style={{
           borderTop: "2px solid rgba(224,33,47,0.2)",
@@ -226,22 +253,37 @@ export default function DiffApprovalPage() {
               justifyContent: "flex-end",
               alignItems: "center",
               gap: "1rem",
+              flexWrap: "wrap",
               marginTop: "1.5rem",
               paddingTop: "1.25rem",
               borderTop: "1px solid var(--border-subtle)",
             }}
           >
-            <Button variant="secondary" onClick={handleReject} disabled={processing}>
+            <Button
+              variant="secondary"
+              isLoading={rejecting}
+              loadingText="Rejecting…"
+              successText="Rejected"
+              errorText="Failed"
+              disabled={isProcessing}
+              onClick={handleReject}
+              style={{ minWidth: "110px" }}
+            >
               Reject Fix
             </Button>
 
-            {/* Approve — signature web-shoot: "catching" the fix */}
+            {/* Approve — signature stateful web-shoot */}
             <WebShootButton
               className="btn btn-success"
-              disabled={processing}
+              isLoading={approving}
+              loadingText="Applying Fix…"
+              successText="Approved &amp; Verified!"
+              errorText="Failed"
+              disabled={isProcessing}
               onClick={handleApprove}
+              style={{ minWidth: "200px" }}
             >
-              {processing ? "Applying…" : "✓ Approve & Re-Run Collector"}
+              ✓ Approve &amp; Re-Run Collector
             </WebShootButton>
           </div>
         )}

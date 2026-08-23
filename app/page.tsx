@@ -1,13 +1,18 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { animate, useMotionValue } from "framer-motion";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { WebShootButton } from "@/components/ui/WebShootButton";
 import { NetworkHubConnector } from "@/components/ui/NetworkHubConnector";
+import { PipelineStepper, StepperState } from "@/components/ui/PipelineStepper";
+import { CollectorCardSkeleton, VitalsStripSkeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { CollectorModel } from "@/types";
+import { PipelineStage } from "@/lib/orchestrator/pipeline";
 
 // Dynamically import the 3D canvas to avoid SSR issues with Three.js
 import dynamic from "next/dynamic";
@@ -88,8 +93,20 @@ export default function DashboardPage() {
   );
   const [creating, setCreating] = useState(false);
 
+  const { toast } = useToast();
+
   // Stagger mount animation state
   const [mounted, setMounted] = useState(false);
+
+  // Stepper state per collector
+  const [stepperStates, setStepperStates] = useState<Record<string, StepperState>>({});
+
+  // Run result popup (optional secondary overview)
+  const [runResult, setRunResult] = useState<{
+    type: "healthy" | "drifted" | "error";
+    collectorName: string;
+    message: string;
+  } | null>(null);
 
   const fetchCollectors = async () => {
     try {
@@ -178,11 +195,18 @@ export default function DashboardPage() {
   const handleTriggerRun = async (id: string, simulateDrift: boolean = false) => {
     setTriggeringId(id);
     const targetUrl = customUrls[id];
-    setStatusMessage(
-      simulateDrift
-        ? "Simulating broken DOM & running drift detection pipeline..."
-        : `Executing scraper on: ${targetUrl || "default URL"}...`
-    );
+    const collector = collectors.find((c) => c.id === id);
+    const collectorName = collector?.name || id;
+
+    // Initialize Stepper
+    setStepperStates((prev) => ({
+      ...prev,
+      [id]: {
+        currentStage: "triggering",
+        message: "Initiating Bright Data collector trigger...",
+        isDrifted: false,
+      },
+    }));
 
     try {
       const res = await fetch(`/api/collectors/${id}/trigger`, {
@@ -191,20 +215,123 @@ export default function DashboardPage() {
         body: JSON.stringify({ simulateDrift, targetUrl: targetUrl || undefined }),
       });
 
-      const json = await res.json();
-      if (json.success) {
-        const result = json.data?.result;
-        if (result?.status === "healthy") {
-          setStatusMessage("✅ Scrape run passed schema validation with 0 issues.");
-        } else {
-          setStatusMessage("⚠️ Drift detected! AI Flow self-healing initiated. Check Pending Approvals.");
+      if (!res.ok || !res.body) {
+        throw new Error(`Server returned status ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let hasDrift = false;
+      let finalResult: any = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+
+        for (const evt of events) {
+          if (!evt.trim()) continue;
+          const lines = evt.split("\n");
+          let eventType = "message";
+          let eventData = "";
+
+          for (const line of lines) {
+            if (line.startsWith("event:")) {
+              eventType = line.slice(6).trim();
+            } else if (line.startsWith("data:")) {
+              eventData = line.slice(5).trim();
+            }
+          }
+
+          if (eventData) {
+            try {
+              const parsed = JSON.parse(eventData);
+
+              if (eventType === "stage") {
+                if (parsed.stage === "healing" || (parsed.extra && parsed.extra.status === "drifted")) {
+                  hasDrift = true;
+                }
+
+                setStepperStates((prev) => ({
+                  ...prev,
+                  [id]: {
+                    currentStage: parsed.stage as PipelineStage,
+                    message: parsed.message || `Stage: ${parsed.stage}`,
+                    isDrifted: hasDrift,
+                    extra: parsed.extra,
+                  },
+                }));
+              } else if (eventType === "result") {
+                finalResult = parsed.result;
+              } else if (eventType === "error") {
+                throw new Error(parsed.error || "Pipeline execution failed");
+              }
+            } catch (e: any) {
+              if (eventType === "error") throw e;
+            }
+          }
         }
-        await fetchCollectors();
-      } else {
-        setStatusMessage(`❌ Trigger failed: ${json.error || "Unknown error"}`);
+      }
+
+      // Final outcomes & Toasts
+      await fetchCollectors();
+
+      if (finalResult) {
+        if (finalResult.status === "healthy") {
+          toast.healthy(
+            "Scrape Validated Successfully",
+            `Collector "${collectorName}" completed. All expected schema fields validated with 0 drift issues.`,
+            {
+              details: [
+                `Target: ${targetUrl || collector?.targetUrl || "Default URL"}`,
+                `Duration: ${finalResult.run?.durationMs || 0}ms`,
+              ],
+            }
+          );
+        } else {
+          const failedField = finalResult.driftSummary?.driftedFields?.[0] || "payload";
+          const firstEventId = finalResult.driftEvents?.[0]?.id;
+
+          toast.drift(
+            "Schema Drift Detected",
+            `Collector "${collectorName}" encountered schema drift on field "${failedField}". AI Flow self-healing initiated.`,
+            {
+              action: firstEventId
+                ? {
+                    label: "Review AI Proposal",
+                    href: `/diff/${firstEventId}`,
+                  }
+                : undefined,
+              details: [
+                `Affected: ${finalResult.driftSummary?.driftedFields?.join(", ") || failedField}`,
+                `Failure: ${finalResult.validation?.issues?.[0]?.message || "Schema constraint violation"}`,
+              ],
+            }
+          );
+        }
       }
     } catch (err: any) {
-      setStatusMessage(`❌ Error: ${err.message}`);
+      console.error("Pipeline trigger error:", err);
+      setStepperStates((prev) => ({
+        ...prev,
+        [id]: {
+          currentStage: "error",
+          message: `Execution failed: ${err.message}`,
+          isDrifted: true,
+        },
+      }));
+
+      toast.error(
+        "Collector Execution Failed",
+        `Failed to run collector "${collectorName}": ${err.message}`,
+        {
+          details: ["Check network connectivity or Bright Data API credentials."],
+        }
+      );
     } finally {
       setTriggeringId(null);
     }
@@ -218,7 +345,7 @@ export default function DashboardPage() {
       try {
         parsedSchema = JSON.parse(newFieldsJson);
       } catch {
-        alert("Invalid JSON in fields schema!");
+        toast.error("Invalid Schema JSON", "Please verify that the field schema is valid JSON format.");
         setCreating(false);
         return;
       }
@@ -241,13 +368,25 @@ export default function DashboardPage() {
         setNewName("");
         setNewCollectorId("");
         setNewTargetUrl("");
-        setStatusMessage(`✅ Collector "${newName}" registered successfully!`);
+        toast.info(
+          "Scraper Registered",
+          `Collector "${newName}" successfully registered and added to active monitor.`,
+          {
+            details: [
+              `Scraper ID: ${newCollectorId}`,
+              `Target: ${newTargetUrl}`,
+            ],
+          }
+        );
         await fetchCollectors();
       } else {
-        alert(`Failed to create collector: ${json.error || "Unknown error"}`);
+        toast.error(
+          "Registration Failed",
+          json.error || "Failed to register new collector."
+        );
       }
     } catch (err: any) {
-      alert(`Error creating collector: ${err.message}`);
+      toast.error("Registration Error", err.message || "Failed to create collector.");
     } finally {
       setCreating(false);
     }
@@ -271,25 +410,26 @@ export default function DashboardPage() {
           alignItems: "flex-start",
           flexWrap: "wrap",
           gap: "1.5rem",
-          paddingTop: "1rem",
-          paddingBottom: "0.5rem",
+          paddingTop: "1.5rem",
+          paddingBottom: "1rem",
+          minHeight: "180px",
         }}
       >
         <div className="hero-section-content">
           <h1
             style={{
-              fontSize: "2.125rem",
+              fontSize: "clamp(2.25rem, 5vw, 4rem)",
               fontWeight: 900,
-              letterSpacing: "-0.04em",
-              marginBottom: "0.625rem",
-              lineHeight: 1.1,
-              background: "linear-gradient(135deg, #f5f7fb 0%, rgba(224,33,47,0.9) 60%, #3b6ff5 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
+              letterSpacing: "-0.045em",
+              marginBottom: "0.75rem",
+              lineHeight: 1.05,
+              color: "#f5f7fb",
             }}
           >
-            Your Scraper Network,<br />Always On.
+            Your Scraper Network,
+            <br />
+            {/* “Always On.” gets the glitch — implies live monitoring energy */}
+            <span className="hero-glitch-text">Always On.</span>
           </h1>
           <p style={{
             color: "var(--text-secondary)",
@@ -303,7 +443,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Global Action — WebShootButton triggers the web-shoot effect */}
+        {/* Global Action */}
         <div style={{ display: "flex", gap: "0.75rem", paddingTop: "0.5rem" }}>
           <WebShootButton
             className="btn btn-primary"
@@ -314,50 +454,18 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ─── Metrics Row ─── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "1rem",
-        }}
-      >
-        {[
-          { label: "TOTAL MONITORED", value: collectors.length, color: undefined },
-          { label: "HEALTHY COLLECTORS", value: collectors.filter((c) => c.status === "healthy").length, color: "var(--status-healthy)" },
-          { label: "DRIFTED / HEALING", value: driftedCount, color: "var(--status-drifted)" },
-          { label: "AI HEAL PROPOSALS", value: pendingApprovalsCount, color: "var(--status-pending)" },
-        ].map((metric, i) => (
-          <Card
-            key={metric.label}
-            style={{
-              opacity: mounted ? 1 : 0,
-              transform: mounted ? "translateY(0)" : "translateY(12px)",
-              transition: `opacity 0.35s ease ${i * 0.07}s, transform 0.35s ease ${i * 0.07}s`,
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {/* Subtle corner accent */}
-            <div style={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              width: "3px",
-              height: "100%",
-              background: metric.color
-                ? `linear-gradient(to bottom, transparent, ${metric.color}40, transparent)`
-                : "linear-gradient(to bottom, transparent, rgba(59,111,245,0.2), transparent)",
-            }} />
-            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.05em" }}>
-              {metric.label}
-            </div>
-            <div style={{ fontSize: "1.875rem", fontWeight: 900, marginTop: "0.25rem", color: metric.color || "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
-              {metric.value}
-            </div>
-          </Card>
-        ))}
-      </div>
+      {/* ─── Vitals Strip ─── */}
+      {loading ? (
+        <VitalsStripSkeleton />
+      ) : (
+        <VitalsStrip
+          totalCount={collectors.length}
+          healthyCount={collectors.filter((c) => c.status === "healthy").length}
+          driftedCount={driftedCount}
+          pendingCount={pendingApprovalsCount}
+          mounted={mounted}
+        />
+      )}
 
       {/* ─── Status Alert Banner ─── */}
       {statusMessage && (
@@ -376,6 +484,154 @@ export default function DashboardPage() {
         >
           <span style={{ fontSize: "1rem" }}>◈</span>
           {statusMessage}
+        </div>
+      )}
+
+      {/* ─── Run Result Popup ─── */}
+      {runResult && (
+        <div
+          onClick={() => setRunResult(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 200,
+            padding: "1.5rem",
+            animation: "fadeInUp 0.2s ease-out both",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "#0a0d17",
+              border: `1px solid ${
+                runResult.type === "healthy"
+                  ? "rgba(59,130,246,0.35)"
+                  : runResult.type === "drifted"
+                  ? "rgba(239,68,68,0.35)"
+                  : "rgba(239,68,68,0.25)"
+              }`,
+              borderRadius: "16px",
+              padding: "2.5rem 2rem",
+              maxWidth: "440px",
+              width: "100%",
+              boxShadow: `0 40px 80px -16px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.03), 0 0 40px ${
+                runResult.type === "healthy"
+                  ? "rgba(59,130,246,0.12)"
+                  : "rgba(239,68,68,0.12)"
+              }`,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              textAlign: "center",
+              gap: "1.25rem",
+              animation: "fadeInUp 0.25s ease-out both",
+            }}
+          >
+            {/* Status icon */}
+            <div
+              style={{
+                width: "64px",
+                height: "64px",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.75rem",
+                backgroundColor:
+                  runResult.type === "healthy"
+                    ? "rgba(59,130,246,0.15)"
+                    : runResult.type === "drifted"
+                    ? "rgba(239,68,68,0.15)"
+                    : "rgba(239,68,68,0.1)",
+                border: `2px solid ${
+                  runResult.type === "healthy"
+                    ? "rgba(59,130,246,0.4)"
+                    : "rgba(239,68,68,0.4)"
+                }`,
+                boxShadow: `0 0 24px ${
+                  runResult.type === "healthy"
+                    ? "rgba(59,130,246,0.25)"
+                    : "rgba(239,68,68,0.25)"
+                }`,
+              }}
+            >
+              {runResult.type === "healthy" ? "✓" : runResult.type === "drifted" ? "⚡" : "✕"}
+            </div>
+
+            {/* Title */}
+            <div>
+              <h3
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                  marginBottom: "0.375rem",
+                  color:
+                    runResult.type === "healthy"
+                      ? "#93c5fd"
+                      : runResult.type === "drifted"
+                      ? "#fca5a5"
+                      : "#fca5a5",
+                }}
+              >
+                {runResult.type === "healthy"
+                  ? "Run Complete"
+                  : runResult.type === "drifted"
+                  ? "Drift Detected"
+                  : "Run Failed"}
+              </h3>
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "var(--text-muted)",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {runResult.collectorName}
+              </p>
+            </div>
+
+            {/* Message */}
+            <p
+              style={{
+                fontSize: "0.9375rem",
+                color: "var(--text-secondary)",
+                lineHeight: 1.65,
+                maxWidth: "340px",
+              }}
+            >
+              {runResult.message}
+            </p>
+
+            {/* OK Button */}
+            <button
+              autoFocus
+              onClick={() => setRunResult(null)}
+              className="btn btn-primary"
+              style={{
+                minWidth: "120px",
+                marginTop: "0.25rem",
+                background:
+                  runResult.type === "healthy"
+                    ? "var(--accent-secondary)"
+                    : "var(--accent-primary)",
+                boxShadow:
+                  runResult.type === "healthy"
+                    ? "0 0 20px rgba(59,111,245,0.4)"
+                    : "0 0 20px rgba(224,33,47,0.4)",
+              }}
+            >
+              OK
+            </button>
+          </div>
         </div>
       )}
 
@@ -404,7 +660,7 @@ export default function DashboardPage() {
               width: "100%",
               backgroundColor: "#0a0d17",
               border: "1px solid rgba(59,111,245,0.2)",
-              padding: "2rem",
+              padding: "clamp(1.25rem, 4vw, 2rem)",
               borderRadius: "14px",
               boxShadow: "0 30px 60px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(59,111,245,0.08)",
               maxHeight: "90vh",
@@ -461,7 +717,7 @@ export default function DashboardPage() {
             </div>
 
             <form onSubmit={handleCreateCollector} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 250px), 1fr))", gap: "1rem" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.375rem" }}>
                     Display Name
@@ -628,9 +884,11 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <Card style={{ textAlign: "center", padding: "3rem" }}>
-            <p style={{ color: "var(--text-muted)" }}>Loading collectors...</p>
-          </Card>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            <CollectorCardSkeleton />
+            <CollectorCardSkeleton />
+            <CollectorCardSkeleton />
+          </div>
         ) : collectors.length === 0 ? (
           <Card style={{ textAlign: "center", padding: "3rem" }}>
             <p style={{ color: "var(--text-muted)", marginBottom: "1rem" }}>
@@ -645,13 +903,14 @@ export default function DashboardPage() {
             {collectors.map((collector, idx) => {
               const isTriggering = triggeringId === collector.id;
               const currentUrl = customUrls[collector.id] ?? collector.targetUrl;
+              const collectorStepper = stepperStates[collector.id];
 
               return (
                 <Card
                   key={collector.id}
                   interactive
-                  /* data attribute for NetworkHubConnector to target */
                   data-collector-id={collector.id}
+                  className="node-card"
                   style={{
                     opacity: mounted ? 1 : 0,
                     transform: mounted ? "translateY(0)" : "translateY(10px)",
@@ -662,6 +921,11 @@ export default function DashboardPage() {
                       : collector.status === "healthy"
                       ? "linear-gradient(to bottom, var(--status-healthy), transparent) 1"
                       : "linear-gradient(to bottom, var(--status-healing), transparent) 1",
+                    "--node-glow": collector.status === "drifted" || collector.status === "pending_approval"
+                      ? "rgba(239,68,68,0.28)"
+                      : collector.status === "healthy"
+                      ? "rgba(59,130,246,0.25)"
+                      : "rgba(177,59,245,0.25)",
                   } as React.CSSProperties}
                 >
                   <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -706,18 +970,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Interactive Target URL Input & Action Controls */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.75rem",
-                        flexWrap: "wrap",
-                        backgroundColor: "rgba(255, 255, 255, 0.025)",
-                        padding: "0.75rem",
-                        borderRadius: "8px",
-                        border: "1px solid var(--border-subtle)",
-                      }}
-                    >
+                    <div className="collector-controls-row">
                       <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                         Target URL:
                       </span>
@@ -730,7 +983,7 @@ export default function DashboardPage() {
                         placeholder="https://target-website.com/data"
                         style={{
                           flex: 1,
-                          minWidth: "220px",
+                          minWidth: "min(100%, 200px)",
                           padding: "0.4rem 0.75rem",
                           borderRadius: "6px",
                           backgroundColor: "#05070a",
@@ -740,27 +993,51 @@ export default function DashboardPage() {
                         }}
                       />
 
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
-                        {/* Run Scraper — web-shoot CTA */}
+                      <div className="collector-buttons-group">
+                        {/* Run Scraper — stateful web-shoot CTA */}
                         <WebShootButton
                           className="btn btn-primary btn-sm"
-                          disabled={isTriggering}
+                          isLoading={isTriggering}
+                          loadingText="Running…"
+                          successText="Complete!"
+                          errorText="Failed"
                           onClick={() => handleTriggerRun(collector.id, false)}
                         >
-                          {isTriggering ? "Running…" : "▶ Run Scraper"}
+                          ▶ Run Scraper
                         </WebShootButton>
 
-                        {/* Test Drift — web-shoot CTA */}
+                        {/* Test Drift — stateful web-shoot CTA */}
                         <WebShootButton
                           className="btn btn-danger btn-sm"
-                          disabled={isTriggering}
+                          isLoading={isTriggering}
+                          loadingText="Drifting…"
+                          successText="Heal Triggered"
+                          errorText="Failed"
                           onClick={() => handleTriggerRun(collector.id, true)}
                           title="Simulates DOM drift to test AI self-healing"
                         >
-                          ⚡ Test Drift & Heal
+                          ⚡ Test Drift &amp; Heal
                         </WebShootButton>
                       </div>
                     </div>
+
+                    {/* Multi-stage Progress Stepper */}
+                    <PipelineStepper
+                      state={
+                        collectorStepper || {
+                          currentStage: "idle",
+                          message: "",
+                        }
+                      }
+                      isVisible={Boolean(collectorStepper)}
+                      onDismiss={() => {
+                        setStepperStates((prev) => {
+                          const next = { ...prev };
+                          delete next[collector.id];
+                          return next;
+                        });
+                      }}
+                    />
                   </div>
                 </Card>
               );
@@ -771,3 +1048,116 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+/* ─── VitalsStrip ─────────────────────────────────────────────────────────── */
+
+interface VitalsStripProps {
+  totalCount: number;
+  healthyCount: number;
+  driftedCount: number;
+  pendingCount: number;
+  mounted: boolean;
+}
+
+function useCountUp(target: number, enabled: boolean) {
+  const val = useMotionValue(0);
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      setDisplay(target);
+      return;
+    }
+    const unsubscribe = val.on("change", (v) => setDisplay(Math.round(v)));
+    const ctrl = animate(val, target, {
+      duration: 1.2,
+      ease: [0.16, 1, 0.3, 1],
+      delay: 0.1,
+    });
+    return () => {
+      ctrl.stop();
+      unsubscribe();
+    };
+  }, [target, enabled, val]);
+
+  return display;
+}
+
+const VitalsStrip: React.FC<VitalsStripProps> = ({
+  totalCount,
+  healthyCount,
+  driftedCount,
+  pendingCount,
+  mounted,
+}) => {
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const doAnimate = mounted && !reducedMotion;
+
+  const total   = useCountUp(totalCount,   doAnimate);
+  const healthy = useCountUp(healthyCount, doAnimate);
+  const drifted = useCountUp(driftedCount, doAnimate);
+  const pending = useCountUp(pendingCount, doAnimate);
+
+  const cells = [
+    { label: "Total Monitored",    value: total,   color: "var(--text-primary)",   drifted: false },
+    { label: "Healthy Collectors", value: healthy,  color: "var(--status-healthy)", drifted: false },
+    { label: "Drifted / Healing",  value: drifted,  color: "var(--status-drifted)", drifted: driftedCount > 0 },
+    { label: "AI Heal Proposals",  value: pending,  color: "var(--status-pending)", drifted: false },
+  ];
+
+  return (
+    <div
+      className="vitals-strip"
+      style={{
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? "translateY(0)" : "translateY(10px)",
+        transition: "opacity 0.4s ease 0.05s, transform 0.4s ease 0.05s",
+      }}
+    >
+      <div className="vitals-row">
+        {cells.map((cell) => (
+          <div
+            key={cell.label}
+            className={`vitals-cell${cell.drifted ? " vitals-cell--drifted" : ""}`}
+          >
+            <div className="vitals-label">{cell.label}</div>
+            <div className="vitals-number" style={{ color: cell.color }}>
+              {cell.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Thread that draws left-to-right on mount — connecting all four vitals */}
+      <svg
+        className="vitals-thread-svg"
+        viewBox="0 0 1000 3"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="vt-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"   stopColor="rgba(59,111,245,0.7)" />
+            <stop offset="35%"  stopColor="rgba(59,130,246,0.5)" />
+            <stop offset="60%"  stopColor="rgba(239,68,68,0.6)" />
+            <stop offset="100%" stopColor="rgba(245,165,36,0.5)" />
+          </linearGradient>
+        </defs>
+        <line
+          x1="0" y1="1.5" x2="1000" y2="1.5"
+          stroke="url(#vt-grad)"
+          strokeWidth="2"
+          className="vitals-thread-line"
+        />
+      </svg>
+    </div>
+  );
+};

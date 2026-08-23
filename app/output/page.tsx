@@ -4,12 +4,15 @@ import React, { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { JsonViewer } from "@/components/ui/JsonViewer";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { RunModel } from "@/types";
 
 export default function StructuredOutputPage() {
   const [runs, setRuns] = useState<RunModel[]>([]);
   const [selectedRun, setSelectedRun] = useState<RunModel | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   const fetchRuns = async () => {
     try {
@@ -36,7 +39,7 @@ export default function StructuredOutputPage() {
       navigator.clipboard.writeText(
         JSON.stringify(JSON.parse(selectedRun.validatedData), null, 2)
       );
-      alert("Structured JSON copied to clipboard!");
+      toast.info("Structured JSON Copied", "Formatted dataset copied to clipboard.");
     }
   };
 
@@ -61,16 +64,30 @@ export default function StructuredOutputPage() {
         </div>
 
         {selectedRun && (
-          <Button variant="secondary" size="sm" onClick={copyToClipboard}>
+          <Button
+            variant="secondary"
+            size="sm"
+            successText="Copied!"
+            onClick={copyToClipboard}
+          >
             📋 Copy JSON
           </Button>
         )}
       </div>
 
       {loading ? (
-        <Card style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>
-          Loading output records...
-        </Card>
+        <div className="responsive-output-grid">
+          <Card style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <Skeleton width="140px" height="1.25rem" />
+            <Skeleton width="100%" height="50px" borderRadius="8px" />
+            <Skeleton width="100%" height="50px" borderRadius="8px" />
+            <Skeleton width="100%" height="50px" borderRadius="8px" />
+          </Card>
+          <Card style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <Skeleton width="200px" height="1.5rem" />
+            <Skeleton width="100%" height="320px" borderRadius="8px" />
+          </Card>
+        </div>
       ) : !selectedRun ? (
         <Card style={{ padding: "3rem", textAlign: "center" }}>
           <p style={{ color: "var(--text-muted)" }}>
@@ -78,7 +95,7 @@ export default function StructuredOutputPage() {
           </p>
         </Card>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "1.5rem" }}>
+        <div className="responsive-output-grid">
           {/* List of Verified Runs */}
           <Card style={{ padding: "1rem" }}>
             <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "0.75rem" }}>

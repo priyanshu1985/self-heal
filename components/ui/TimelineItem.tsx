@@ -131,12 +131,14 @@ export const TimelineItem: React.FC<TimelineItemProps> = ({ event }) => {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              flexWrap: "wrap",
+              gap: "0.75rem",
               marginTop: "0.5rem",
               paddingTop: "0.75rem",
               borderTop: "1px solid var(--border-subtle)",
             }}
           >
-            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)", flex: "1 1 200px" }}>
               AI has proposed an extraction selector fix. Human approval required.
             </span>
             {/* WebShootButton: "catch the fix" interaction */}

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { TimelineItem } from "@/components/ui/TimelineItem";
+import { TimelineItemSkeleton } from "@/components/ui/Skeleton";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DriftEventModel } from "@/types";
@@ -67,9 +68,11 @@ export default function TimelinePage() {
       </div>
 
       {loading ? (
-        <Card style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>
-          Loading event timeline...
-        </Card>
+        <div className="timeline-thread-container" style={{ marginTop: "1rem" }}>
+          <TimelineItemSkeleton />
+          <TimelineItemSkeleton />
+          <TimelineItemSkeleton />
+        </div>
       ) : events.length === 0 ? (
         <Card style={{ padding: "3rem", textAlign: "center" }}>
           <h3 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: "0.5rem" }}>

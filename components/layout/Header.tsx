@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { SpinneretGlyph } from "@/components/ui/SpinneretGlyph";
 
 export const Header: React.FC = () => {
@@ -48,7 +49,6 @@ export const Header: React.FC = () => {
             letterSpacing: "-0.02em",
           }}
         >
-          {/* Original SpinneretGlyph circuit-web icon */}
           <span
             style={{
               width: "32px",
@@ -65,25 +65,13 @@ export const Header: React.FC = () => {
             <SpinneretGlyph size={22} glowing />
           </span>
           <span>SelfHeal</span>
-          <span
-            style={{
-              fontSize: "0.6875rem",
-              padding: "0.125rem 0.5rem",
-              borderRadius: "9999px",
-              backgroundColor: "rgba(224, 33, 47, 0.12)",
-              color: "var(--accent-primary)",
-              border: "1px solid rgba(224, 33, 47, 0.25)",
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-            }}
-          >
+          <span className="header-badge-tag">
             Bright Data Scraper Studio
           </span>
         </Link>
 
         {/* Navigation Tabs */}
-        <nav style={{ display: "flex", gap: "0.25rem" }}>
+        <nav style={{ display: "flex", gap: "0.25rem", overflowX: "auto", maxWidth: "100%" }}>
           {navLinks.map((link) => {
             const isActive =
               pathname === link.href ||
@@ -93,21 +81,48 @@ export const Header: React.FC = () => {
               <Link
                 key={link.href}
                 href={link.href}
-                className={isActive ? "header-nav-active" : ""}
                 style={{
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  padding: "0.5rem 0.875rem",
+                  fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                  fontWeight: isActive ? 600 : 500,
+                  padding: "0.45rem 0.75rem",
                   borderRadius: "6px",
                   color: isActive ? "#ffffff" : "var(--text-secondary)",
-                  backgroundColor: isActive
-                    ? "rgba(224, 33, 47, 0.08)"
-                    : "transparent",
-                  transition: "all 0.15s ease",
+                  backgroundColor: "transparent",
+                  transition: "color 0.15s ease",
                   display: "block",
+                  position: "relative",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {link.label}
+
+                {/* Animated thread underline — shared layoutId means framer-motion
+                    slides it from old active → new active automatically */}
+                {isActive && (
+                  <motion.span
+                    layoutId="nav-thread"
+                    initial={{ scaleX: 0, opacity: 0 }}
+                    animate={{ scaleX: 1, opacity: 1 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 38,
+                      mass: 0.5,
+                    }}
+                    style={{
+                      position: "absolute",
+                      bottom: "2px",
+                      left: "0.5rem",
+                      right: "0.5rem",
+                      height: "2px",
+                      borderRadius: "2px",
+                      background: "var(--accent-primary)",
+                      boxShadow: "0 0 8px var(--accent-primary), 0 0 3px var(--accent-primary)",
+                      transformOrigin: "left center",
+                      display: "block",
+                    }}
+                  />
+                )}
               </Link>
             );
           })}
@@ -116,4 +131,3 @@ export const Header: React.FC = () => {
     </header>
   );
 };
-

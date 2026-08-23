@@ -7,16 +7,22 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { JsonViewer } from "@/components/ui/JsonViewer";
+import { PipelineStepper, StepperState } from "@/components/ui/PipelineStepper";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { CollectorModel, CollectorSchemaDefinition, RunModel } from "@/types";
+import { PipelineStage } from "@/lib/orchestrator/pipeline";
 
 export default function CollectorDetailPage() {
   const params = useParams();
   const id = params?.id as string;
+  const { toast } = useToast();
 
   const [collector, setCollector] = useState<CollectorModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [selectedRun, setSelectedRun] = useState<RunModel | null>(null);
+  const [stepperState, setStepperState] = useState<StepperState | null>(null);
 
   const fetchCollector = async () => {
     try {
@@ -41,23 +47,145 @@ export default function CollectorDetailPage() {
 
   const handleTrigger = async (simulateDrift: boolean) => {
     setTriggering(true);
+    setStepperState({
+      currentStage: "triggering",
+      message: "Starting collector execution pipeline...",
+      isDrifted: false,
+    });
+
     try {
       const res = await fetch(`/api/collectors/${id}/trigger`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ simulateDrift }),
       });
-      await res.json();
+
+      if (!res.ok || !res.body) {
+        throw new Error(`Server returned status ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let hasDrift = false;
+      let finalResult: any = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+
+        for (const evt of events) {
+          if (!evt.trim()) continue;
+          const lines = evt.split("\n");
+          let eventType = "message";
+          let eventData = "";
+
+          for (const line of lines) {
+            if (line.startsWith("event:")) {
+              eventType = line.slice(6).trim();
+            } else if (line.startsWith("data:")) {
+              eventData = line.slice(5).trim();
+            }
+          }
+
+          if (eventData) {
+            try {
+              const parsed = JSON.parse(eventData);
+
+              if (eventType === "stage") {
+                if (parsed.stage === "healing" || (parsed.extra && parsed.extra.status === "drifted")) {
+                  hasDrift = true;
+                }
+
+                setStepperState({
+                  currentStage: parsed.stage as PipelineStage,
+                  message: parsed.message || `Stage: ${parsed.stage}`,
+                  isDrifted: hasDrift,
+                  extra: parsed.extra,
+                });
+              } else if (eventType === "result") {
+                finalResult = parsed.result;
+              } else if (eventType === "error") {
+                throw new Error(parsed.error || "Execution failed");
+              }
+            } catch (e: any) {
+              if (eventType === "error") throw e;
+            }
+          }
+        }
+      }
+
       await fetchCollector();
-    } catch (err) {
+
+      if (finalResult) {
+        if (finalResult.status === "healthy") {
+          toast.healthy(
+            "Scrape Completed Healthy",
+            `Collector "${collector?.name || id}" verified all fields with 0 drift issues.`,
+            {
+              details: [
+                `Duration: ${finalResult.run?.durationMs || 0}ms`,
+                `Snapshot: ${finalResult.run?.snapshotId || "N/A"}`,
+              ],
+            }
+          );
+        } else {
+          const firstEventId = finalResult.driftEvents?.[0]?.id;
+          toast.drift(
+            "Schema Drift Detected",
+            `Collector "${collector?.name || id}" detected drift on field "${finalResult.driftSummary?.driftedFields?.[0]}". AI Flow repair proposal initiated.`,
+            {
+              action: firstEventId
+                ? {
+                    label: "Review AI Proposal",
+                    href: `/diff/${firstEventId}`,
+                  }
+                : undefined,
+              details: [
+                `Field: ${finalResult.driftSummary?.driftedFields?.join(", ")}`,
+                `Failure: ${finalResult.validation?.issues?.[0]?.message || "Constraint failure"}`,
+              ],
+            }
+          );
+        }
+      }
+    } catch (err: any) {
       console.error("Trigger error:", err);
+      setStepperState({
+        currentStage: "error",
+        message: `Execution failed: ${err.message}`,
+        isDrifted: true,
+      });
+      toast.error("Execution Error", err.message || "Failed to trigger collector.");
     } finally {
       setTriggering(false);
     }
   };
 
   if (loading) {
-    return <Card style={{ padding: "3rem", textAlign: "center" }}>Loading collector details...</Card>;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <Skeleton width="260px" height="2rem" />
+            <Skeleton width="400px" height="1rem" />
+          </div>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            <Skeleton width="110px" height="2rem" borderRadius="8px" />
+            <Skeleton width="130px" height="2rem" borderRadius="8px" />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "1.5rem" }}>
+          <Card><Skeleton width="100%" height="200px" /></Card>
+          <Card><Skeleton width="100%" height="200px" /></Card>
+        </div>
+      </div>
+    );
   }
 
   if (!collector) {
@@ -104,18 +232,43 @@ export default function CollectorDetailPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <Badge status={collector.status} />
-            <Button variant="secondary" size="sm" isLoading={triggering} onClick={() => handleTrigger(false)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              isLoading={triggering}
+              loadingText="Scraping…"
+              successText="Complete!"
+              errorText="Failed"
+              onClick={() => handleTrigger(false)}
+            >
               ▶ Run Scrape
             </Button>
-            <Button variant="danger" size="sm" isLoading={triggering} onClick={() => handleTrigger(true)}>
-              ⚡ Break & Heal
+            <Button
+              variant="danger"
+              size="sm"
+              isLoading={triggering}
+              loadingText="Drifting…"
+              successText="Heal Flow Initiated"
+              errorText="Failed"
+              onClick={() => handleTrigger(true)}
+            >
+              ⚡ Break &amp; Heal
             </Button>
           </div>
         </div>
       </div>
 
+      {/* Real-time Multi-stage Stepper */}
+      {stepperState && (
+        <PipelineStepper
+          state={stepperState}
+          isVisible={Boolean(stepperState)}
+          onDismiss={() => setStepperState(null)}
+        />
+      )}
+
       {/* Grid: Schema Definition & Current Extractor */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "1.5rem" }}>
+      <div className="responsive-2col-grid">
         {/* Schema Definition Card */}
         <Card>
           <h3 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: "1rem" }}>
@@ -204,10 +357,10 @@ export default function CollectorDetailPage() {
       {/* Run History & Output Inspector */}
       <div>
         <h3 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "1rem" }}>
-          Run History & Extraction Inspector
+          Run History &amp; Extraction Inspector
         </h3>
         
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "1.5rem" }}>
+        <div className="responsive-split-grid">
           {/* Runs Table */}
           <Card style={{ padding: "1rem" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
