@@ -40,8 +40,9 @@ export async function GET(req: NextRequest) {
     });
 
     return apiSuccess({ driftEvents });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to fetch drift events";
     console.error("[API /api/drift-events GET] Failure:", error);
-    return apiError(error.message || "Failed to fetch drift events", 500);
+    return apiError(message, 500);
   }
 }

@@ -5,9 +5,7 @@ import { WebShootButton } from "@/components/ui/WebShootButton";
 import { DriftEventModel } from "@/types";
 
 interface TimelineItemProps {
-  event: DriftEventModel & {
-    collector?: { id: string; name: string; collectorId: string };
-  };
+  event: DriftEventModel;
 }
 
 // Maps status to the brand color tokens for the connector dot/thread

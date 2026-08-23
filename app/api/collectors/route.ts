@@ -33,9 +33,10 @@ export async function GET() {
     });
 
     return apiSuccess({ collectors });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to retrieve collectors";
     console.error("[API /api/collectors GET] Failure:", error);
-    return apiError(error.message || "Failed to retrieve collectors", 500);
+    return apiError(message, 500);
   }
 }
 
@@ -93,8 +94,9 @@ export async function POST(req: NextRequest) {
     });
 
     return apiSuccess({ collector: newCollector }, 201);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to create collector";
     console.error("[API /api/collectors POST] Failure:", error);
-    return apiError(error.message || "Failed to create collector", 500);
+    return apiError(message, 500);
   }
 }

@@ -77,10 +77,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
           result: pipelineResult,
           timestamp: Date.now(),
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Pipeline execution failed";
         console.error("[API /api/collectors/[id]/trigger POST] Failure:", error);
         sendEvent("error", {
-          error: error.message || "Pipeline execution failed",
+          error: message,
           timestamp: Date.now(),
         });
       } finally {

@@ -22,7 +22,7 @@ export type PipelineStage =
 export type ProgressCallback = (
   stage: PipelineStage,
   message: string,
-  data?: any
+  data?: unknown
 ) => Promise<void> | void;
 
 /**

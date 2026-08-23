@@ -32,9 +32,10 @@ export async function GET(_req: NextRequest, context: RouteContext) {
     }
 
     return apiSuccess({ collector });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to fetch collector";
     console.error("[API /api/collectors/[id] GET] Failure:", error);
-    return apiError(error.message || "Failed to fetch collector", 500);
+    return apiError(message, 500);
   }
 }
 
@@ -61,8 +62,9 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
     return apiSuccess({
       message: `Collector '${existing.name}' (${id}) was deleted successfully.`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to delete collector";
     console.error("[API /api/collectors/[id] DELETE] Failure:", error);
-    return apiError(error.message || "Failed to delete collector", 500);
+    return apiError(message, 500);
   }
 }

@@ -37,8 +37,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
       message: "Proposed AI diff was rejected by operator.",
       result,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to reject diff";
     console.error("[API /api/drift-events/[id]/reject POST] Failure:", error);
-    return apiError(error.message || "Failed to reject diff", 500);
+    return apiError(message, 500);
   }
 }

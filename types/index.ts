@@ -37,7 +37,7 @@ export const FieldDefinitionZodSchema = z.object({
   type: z.enum(["string", "number", "boolean", "array", "object"]),
   required: z.boolean(),
   description: z.string().optional(),
-  example: z.any().optional(),
+  example: z.unknown().optional(),
 });
 
 export const CollectorSchemaZod = z.object({

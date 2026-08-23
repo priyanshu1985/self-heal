@@ -44,10 +44,10 @@ export const Button: React.FC<ButtonProps> = ({
 
       if (onClick) {
         const result = onClick(e) as unknown;
-        if (result && typeof (result as Promise<any>).then === "function") {
+        if (result && typeof (result as Promise<unknown>).then === "function") {
           setInternalStatus("loading");
           try {
-            await (result as Promise<any>);
+            await (result as Promise<unknown>);
             setInternalStatus("success");
             setTimeout(() => {
               setInternalStatus("idle");

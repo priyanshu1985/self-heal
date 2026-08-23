@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { SpinneretGlyph } from "./SpinneretGlyph";
 
@@ -22,10 +22,13 @@ interface NetworkHubConnectorProps {
 export const NetworkHubConnector: React.FC<NetworkHubConnectorProps> = ({
   collectorIds,
 }) => {
+  const [mounted, setMounted] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const frameRef = useRef<number | null>(null);
-  const hubX = typeof window !== "undefined" ? window.innerWidth - 48 : 0;
-  const hubY = typeof window !== "undefined" ? window.innerHeight - 48 : 0;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const draw = useCallback(() => {
     if (!svgRef.current) return;
@@ -90,7 +93,7 @@ export const NetworkHubConnector: React.FC<NetworkHubConnectorProps> = ({
     };
   }, [draw]);
 
-  if (typeof window === "undefined") return null;
+  if (!mounted) return null;
 
   const portalTarget = document.body;
 

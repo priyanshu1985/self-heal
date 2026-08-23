@@ -1,8 +1,15 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { CustomCursor } from "@/components/ui/CustomCursor";
 import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
   title: "SelfHeal — Real-Time Reliability Monitor for Self-Healing Web Scrapers",
@@ -22,12 +29,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
         <ToastProvider>
           <CustomCursor />
           <Header />

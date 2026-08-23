@@ -34,8 +34,9 @@ export async function GET(req: NextRequest) {
     });
 
     return apiSuccess({ runs });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to fetch runs";
     console.error("[API /api/runs GET] Failure:", error);
-    return apiError(error.message || "Failed to fetch runs", 500);
+    return apiError(message, 500);
   }
 }

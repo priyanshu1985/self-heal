@@ -95,7 +95,7 @@ export default function TimelinePage() {
                 transition: `opacity 0.35s ease ${idx * 0.06}s, transform 0.35s ease ${idx * 0.06}s`,
               }}
             >
-              <TimelineItem event={event as any} />
+              <TimelineItem event={event} />
             </div>
           ))}
         </div>

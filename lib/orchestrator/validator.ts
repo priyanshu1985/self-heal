@@ -9,7 +9,7 @@ import {
 /**
  * Builds a dynamic Zod schema object from field definitions.
  */
-export function buildDynamicZodSchema(fieldDefinitions: FieldDefinition[]): z.ZodObject<any> {
+export function buildDynamicZodSchema(fieldDefinitions: FieldDefinition[]): z.ZodObject<Record<string, ZodTypeAny>> {
   const shape: Record<string, ZodTypeAny> = {};
 
   for (const field of fieldDefinitions) {
@@ -26,13 +26,13 @@ export function buildDynamicZodSchema(fieldDefinitions: FieldDefinition[]): z.Zo
         fieldSchema = z.boolean();
         break;
       case "array":
-        fieldSchema = z.array(z.any());
+        fieldSchema = z.array(z.unknown());
         break;
       case "object":
-        fieldSchema = z.record(z.any());
+        fieldSchema = z.record(z.unknown());
         break;
       default:
-        fieldSchema = z.any();
+        fieldSchema = z.unknown();
     }
 
     if (!field.required) {

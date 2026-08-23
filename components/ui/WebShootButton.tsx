@@ -8,7 +8,7 @@ export type ButtonStatus = "idle" | "loading" | "success" | "error";
 
 interface WebShootButtonProps {
   children: React.ReactNode;
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void | Promise<any>;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void | Promise<unknown>;
   className?: string;
   style?: React.CSSProperties;
   disabled?: boolean;

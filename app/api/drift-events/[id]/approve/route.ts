@@ -20,8 +20,9 @@ export async function POST(_req: NextRequest, context: RouteContext) {
       message: "AI-proposed fix approved and extraction re-verified successfully.",
       result,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to approve diff";
     console.error("[API /api/drift-events/[id]/approve POST] Failure:", error);
-    return apiError(error.message || "Failed to approve diff", 500);
+    return apiError(message, 500);
   }
 }
