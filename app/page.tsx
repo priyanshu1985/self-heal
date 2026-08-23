@@ -15,10 +15,10 @@ import { useToast } from "@/components/ui/Toast";
 import { CollectorModel } from "@/types";
 import { PipelineStage } from "@/lib/orchestrator/pipeline";
 
-// Dynamically import the 3D canvas to avoid SSR issues with Three.js
+// Dynamically import backgrounds to avoid SSR hydration mismatch
 import dynamic from "next/dynamic";
-const ParticleWebCanvas = dynamic(
-  () => import("@/components/three/ParticleWebCanvas").then((m) => m.ParticleWebCanvas),
+const SpiderWebBackground = dynamic(
+  () => import("@/components/effects/SpiderWebBackground").then((m) => m.SpiderWebBackground),
   { ssr: false }
 );
 
@@ -399,8 +399,8 @@ export default function DashboardPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem", position: "relative" }}>
 
-      {/* ─── 3D Particle Web Canvas (hero background layer) ─── */}
-      <ParticleWebCanvas />
+      {/* ─── Classic Radial Orb-Web Background with Crawling Spider ─── */}
+      <SpiderWebBackground />
 
       {/* ─── Hero Section ─── */}
       <div
