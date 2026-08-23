@@ -6,6 +6,7 @@ import { z } from "zod";
 const TriggerOptionsSchema = z
   .object({
     simulateDrift: z.boolean().optional(),
+    targetUrl: z.string().url().optional(),
   })
   .optional();
 
@@ -33,9 +34,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const simulateDrift = parsedOptions.success
       ? parsedOptions.data?.simulateDrift
       : false;
+    const customTargetUrl = parsedOptions.success
+      ? parsedOptions.data?.targetUrl
+      : undefined;
 
     const pipelineResult = await executeCollectorRun(id, {
       simulateDrift,
+      customTargetUrl,
     });
 
     return apiSuccess({ result: pipelineResult });

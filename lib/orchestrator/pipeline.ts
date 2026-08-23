@@ -8,6 +8,7 @@ import { CollectorModel, CollectorSchemaDefinition } from "@/types";
 export interface PipelineExecutionOptions {
   simulateDrift?: boolean;
   isHealedVerification?: boolean;
+  customTargetUrl?: string;
 }
 
 /**
@@ -33,10 +34,12 @@ export async function executeCollectorRun(
     collector.fieldSchema
   ) as CollectorSchemaDefinition;
 
+  const urlToScrape = options?.customTargetUrl || collector.targetUrl;
+
   // 2. Trigger collector run via Layer 1
   const triggerRes = await brightData.triggerCollector(
     collector.collectorId,
-    collector.targetUrl,
+    urlToScrape,
     options
   );
 
