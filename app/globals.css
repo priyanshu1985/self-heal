@@ -1,42 +1,55 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
 
 :root {
-  --bg-primary: #0a0d14;
-  --bg-secondary: #101522;
-  --bg-tertiary: #161e31;
-  --bg-card: rgba(18, 24, 38, 0.75);
-  --bg-card-hover: rgba(26, 35, 56, 0.85);
+  /* Rooftop-at-night void — cool near-black with a faint blue undertone, not flat black */
+  --bg-primary: #05070d;
+  --bg-secondary: #0a0d17;
+  --bg-tertiary: #101524;
+  --bg-card: rgba(10, 13, 23, 0.78);
+  --bg-card-hover: rgba(16, 21, 36, 0.88);
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(99, 102, 241, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-focus: rgba(59, 111, 245, 0.55);
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #f5f7fb;
+  --text-secondary: #8a94a8;
+  --text-muted: #5c6478;
 
-  --accent-primary: #6366f1;
-  --accent-primary-hover: #4f46e5;
-  --accent-glow: rgba(99, 102, 241, 0.25);
+  /* Two-accent brand system instead of one generic accent: red = alert/energy, blue = trust/stability */
+  --accent-primary: #e0212f;
+  --accent-primary-hover: #c01824;
+  --accent-glow: rgba(224, 33, 47, 0.28);
 
-  --status-healthy: #10b981;
-  --status-healthy-bg: rgba(16, 185, 129, 0.12);
-  --status-healthy-border: rgba(16, 185, 129, 0.3);
+  --accent-secondary: #3b6ff5;
+  --accent-secondary-hover: #2c5adf;
+  --accent-secondary-glow: rgba(59, 111, 245, 0.28);
 
-  --status-drifted: #f43f5e;
-  --status-drifted-bg: rgba(244, 63, 94, 0.12);
-  --status-drifted-border: rgba(244, 63, 94, 0.3);
+  /* Status colors remapped so the meaning is legible, not just decorative:
+     healthy = web-blue (stable, trustworthy)
+     drifted = spider red (alarm)
+     healing = red+blue blend (the state between broken and working)
+     pending = signal amber (needs attention, unrelated to red/blue so it doesn't get lost)
+     resolved = cool cyan-silver (closed case, web-silk color) */
+  --status-healthy: #3b82f6;
+  --status-healthy-bg: rgba(59, 130, 246, 0.12);
+  --status-healthy-border: rgba(59, 130, 246, 0.32);
 
-  --status-healing: #a855f7;
-  --status-healing-bg: rgba(168, 85, 247, 0.12);
-  --status-healing-border: rgba(168, 85, 247, 0.3);
+  --status-drifted: #ef4444;
+  --status-drifted-bg: rgba(239, 68, 68, 0.13);
+  --status-drifted-border: rgba(239, 68, 68, 0.32);
 
-  --status-pending: #f59e0b;
-  --status-pending-bg: rgba(245, 158, 11, 0.12);
-  --status-pending-border: rgba(245, 158, 11, 0.3);
+  --status-healing: #b13bf5;
+  --status-healing-bg: rgba(177, 59, 245, 0.13);
+  --status-healing-border: rgba(177, 59, 245, 0.32);
 
-  --status-resolved: #06b6d4;
-  --status-resolved-bg: rgba(6, 182, 212, 0.12);
-  --status-resolved-border: rgba(6, 182, 212, 0.3);
+  --status-pending: #f5a524;
+  --status-pending-bg: rgba(245, 165, 36, 0.13);
+  --status-pending-border: rgba(245, 165, 36, 0.32);
+
+  --status-resolved: #22d3ee;
+  --status-resolved-bg: rgba(34, 211, 238, 0.12);
+  --status-resolved-border: rgba(34, 211, 238, 0.3);
 }
 
 * {
@@ -48,14 +61,25 @@
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter",
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
+  /* Faint web-strand texture — thin diagonal threads from corners */
   background-image:
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.06) 0px, transparent 50%);
+    repeating-linear-gradient(115deg,
+      rgba(59, 111, 245, 0.05) 0px,
+      rgba(59, 111, 245, 0.05) 1px,
+      transparent 1px,
+      transparent 84px),
+    repeating-linear-gradient(25deg,
+      rgba(224, 33, 47, 0.035) 0px,
+      rgba(224, 33, 47, 0.035) 1px,
+      transparent 1px,
+      transparent 96px),
+    radial-gradient(at 0% 0%, rgba(224, 33, 47, 0.07) 0px, transparent 45%),
+    radial-gradient(at 100% 100%, rgba(59, 111, 245, 0.08) 0px, transparent 45%);
   background-attachment: fixed;
 }
 
@@ -88,7 +112,7 @@ a {
 .card-interactive:hover {
   background: var(--bg-card-hover);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* Buttons */
@@ -107,6 +131,7 @@ a {
   text-decoration: none;
 }
 
+/* Primary actions (Trigger run, Approve) lean red — the brand-forward, energetic accent */
 .btn-primary {
   background-color: var(--accent-primary);
   color: #ffffff;
@@ -115,7 +140,20 @@ a {
 
 .btn-primary:hover {
   background-color: var(--accent-primary-hover);
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 20px rgba(224, 33, 47, 0.42);
+}
+
+/* A second, blue interactive style available for secondary CTAs that need
+   emphasis without competing with primary red actions */
+.btn-accent-blue {
+  background-color: var(--accent-secondary);
+  color: #ffffff;
+  box-shadow: 0 0 16px var(--accent-secondary-glow);
+}
+
+.btn-accent-blue:hover {
+  background-color: var(--accent-secondary-hover);
+  box-shadow: 0 0 20px rgba(59, 111, 245, 0.4);
 }
 
 .btn-secondary {
@@ -136,7 +174,7 @@ a {
 }
 
 .btn-danger:hover {
-  background-color: rgba(244, 63, 94, 0.2);
+  background-color: rgba(239, 68, 68, 0.22);
 }
 
 .btn-success {
@@ -146,7 +184,7 @@ a {
 }
 
 .btn-success:hover {
-  background-color: rgba(16, 185, 129, 0.2);
+  background-color: rgba(59, 130, 246, 0.22);
 }
 
 .btn-sm {
@@ -196,11 +234,13 @@ a {
   box-shadow: 0 0 8px var(--status-drifted);
 }
 
+/* "healing" pulse reads as a spider-sense tingle — a soft alternating glow
+   between the red and blue accents rather than a flat single-color pulse */
 .badge-healing {
   background-color: var(--status-healing-bg);
   color: var(--status-healing);
   border-color: var(--status-healing-border);
-  animation: pulse-glow 2s infinite;
+  animation: spider-sense-tingle 1.8s ease-in-out infinite;
 }
 
 .badge-healing .badge-dot {
@@ -227,21 +267,57 @@ a {
   background-color: var(--status-resolved);
 }
 
-@keyframes pulse-glow {
-
+@keyframes spider-sense-tingle {
   0%,
   100% {
     opacity: 1;
+    box-shadow: 0 0 0px transparent;
   }
-
   50% {
-    opacity: 0.6;
+    opacity: 0.72;
+    box-shadow: 0 0 10px var(--status-healing-border);
   }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hub-pulse {
+  0%, 100% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 4px rgba(59, 111, 245, 0.5));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(224, 33, 47, 0.7)) drop-shadow(0 0 4px rgba(59, 111, 245, 0.5));
+  }
+}
+
+@keyframes thread-draw {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes spinneret-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 /* Diff Viewer Styling */
 .diff-container {
-  background: #080b11;
+  background: #04060b;
   border-radius: 8px;
   border: 1px solid var(--border-subtle);
   overflow-x: auto;
@@ -256,19 +332,22 @@ a {
   white-space: pre-wrap;
 }
 
+/* Added/removed lines now echo the blue/red brand pair instead of generic
+   green/red — added = trust blue, removed = alert red, keeping the diff
+   viewer visually consistent with the rest of the product's color logic */
 .diff-line-added {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: #6ee7b7;
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
 }
 
 .diff-line-removed {
-  background-color: rgba(244, 63, 94, 0.15);
-  color: #fda4af;
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
 }
 
 .diff-line-meta {
-  background-color: rgba(99, 102, 241, 0.1);
-  color: #a5b4fc;
+  background-color: rgba(177, 59, 245, 0.1);
+  color: #d8b4fe;
 }
 
 .diff-line-unchanged {
@@ -286,10 +365,100 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27334d;
+  background: #2a1520;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b4c6e;
+  background: #3d1e2c;
+}
+
+/* ─── Timeline Thread ─────────────────────────────── */
+.timeline-thread-container {
+  position: relative;
+}
+
+.timeline-thread-container::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    rgba(59, 111, 245, 0.7),
+    rgba(224, 33, 47, 0.4),
+    rgba(59, 111, 245, 0.6),
+    rgba(177, 59, 245, 0.5),
+    rgba(59, 111, 245, 0.3)
+  );
+  box-shadow:
+    0 0 8px rgba(59, 111, 245, 0.4),
+    0 0 2px rgba(224, 33, 47, 0.3);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* ─── Hero Section ────────────────────────────────── */
+.hero-section {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-section-content {
+  position: relative;
+  z-index: 2;
+}
+
+/* ─── Spinneret icon glow animation ──────────────── */
+.spinneret-glow {
+  animation: hub-pulse 3s ease-in-out infinite;
+}
+
+/* ─── Page transition wrapper ────────────────────── */
+.page-fade-in {
+  animation: fadeInUp 0.25s ease-out both;
+}
+
+/* ─── Header upgrade ─────────────────────────────── */
+.header-nav-active {
+  position: relative;
+  color: #ffffff !important;
+}
+
+.header-nav-active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  box-shadow: 0 0 6px var(--accent-primary);
+}
+
+/* ─── Reduced Motion Safety Block ────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .timeline-thread-container::before {
+    box-shadow: none;
+  }
+
+  .spinneret-glow {
+    animation: none;
+  }
+
+  .page-fade-in {
+    animation: none;
+  }
 }

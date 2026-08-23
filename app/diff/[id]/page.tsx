@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DiffViewer } from "@/components/ui/DiffViewer";
+import { WebShootButton } from "@/components/ui/WebShootButton";
+import { SpinneretGlyph } from "@/components/ui/SpinneretGlyph";
 import { DriftEventModel } from "@/types";
 
 export default function DiffApprovalPage() {
@@ -42,14 +44,10 @@ export default function DiffApprovalPage() {
     setProcessing(true);
     setResultMessage(null);
     try {
-      const res = await fetch(`/api/drift-events/${id}/approve`, {
-        method: "POST",
-      });
+      const res = await fetch(`/api/drift-events/${id}/approve`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
-        setResultMessage(
-          "✅ Fix approved! Collector template updated and re-verified successfully."
-        );
+        setResultMessage("✅ Fix approved! Collector template updated and re-verified successfully.");
         await fetchEvent();
         setTimeout(() => {
           router.push(`/collectors/${event?.collectorId}`);
@@ -106,11 +104,24 @@ export default function DiffApprovalPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem", maxWidth: "960px", margin: "0 auto" }}>
-      {/* Header */}
+
+      {/* ─── Header — calmer chrome, just a spinneret inline marker ─── */}
       <div>
-        <Link href="/timeline" style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-          ← Back to Drift Timeline
+        {/* Back link with tiny spinneret glyph */}
+        <Link
+          href="/timeline"
+          style={{
+            color: "var(--text-muted)",
+            fontSize: "0.875rem",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.375rem",
+          }}
+        >
+          <SpinneretGlyph size={14} />
+          Back to Drift Timeline
         </Link>
+
         <div
           style={{
             display: "flex",
@@ -119,10 +130,18 @@ export default function DiffApprovalPage() {
             flexWrap: "wrap",
             gap: "1rem",
             marginTop: "0.5rem",
+            paddingTop: "0.75rem",
+            borderTop: "1px solid rgba(224,33,47,0.12)",
           }}
         >
           <div>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 800 }}>
+            <h1
+              style={{
+                fontSize: "1.75rem",
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
+              }}
+            >
               AI Self-Healing Review Gate
             </h1>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: "0.25rem" }}>
@@ -139,20 +158,20 @@ export default function DiffApprovalPage() {
           style={{
             padding: "1rem",
             borderRadius: "8px",
-            backgroundColor: "rgba(99, 102, 241, 0.15)",
-            border: "1px solid rgba(99, 102, 241, 0.3)",
+            backgroundColor: "rgba(59, 111, 245, 0.12)",
+            border: "1px solid rgba(59, 111, 245, 0.3)",
             fontSize: "0.875rem",
-            color: "#c7d2fe",
+            color: "#93c5fd",
           }}
         >
           {resultMessage}
         </div>
       )}
 
-      {/* Incident Summary Card */}
+      {/* ─── Incident Summary Card ─── */}
       <Card>
         <h3 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: "0.75rem" }}>
-          Incident Diagnosis & AI Repair Intent
+          Incident Diagnosis &amp; AI Repair Intent
         </h3>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", fontSize: "0.875rem" }}>
           <div>
@@ -175,6 +194,7 @@ export default function DiffApprovalPage() {
                   color: "#a5b4fc",
                   marginTop: "0.25rem",
                   whiteSpace: "pre-wrap",
+                  border: "1px solid var(--border-subtle)",
                 }}
               >
                 {event.healPrompt}
@@ -184,8 +204,12 @@ export default function DiffApprovalPage() {
         </div>
       </Card>
 
-      {/* Proposed Diff Viewer */}
-      <Card>
+      {/* ─── Proposed Diff Viewer — content stays utilitarian, only chrome changes ─── */}
+      <Card
+        style={{
+          borderTop: "2px solid rgba(224,33,47,0.2)",
+        }}
+      >
         {event.proposedDiff ? (
           <DiffViewer diffText={event.proposedDiff} title="Proposed Code Refactor (AI Flow)" />
         ) : (
@@ -194,7 +218,7 @@ export default function DiffApprovalPage() {
           </div>
         )}
 
-        {/* Action Gate */}
+        {/* ─── Action Gate ─── */}
         {isPending && (
           <div
             style={{
@@ -207,20 +231,18 @@ export default function DiffApprovalPage() {
               borderTop: "1px solid var(--border-subtle)",
             }}
           >
-            <Button
-              variant="secondary"
-              onClick={handleReject}
-              disabled={processing}
-            >
+            <Button variant="secondary" onClick={handleReject} disabled={processing}>
               Reject Fix
             </Button>
-            <Button
-              variant="success"
-              isLoading={processing}
+
+            {/* Approve — signature web-shoot: "catching" the fix */}
+            <WebShootButton
+              className="btn btn-success"
+              disabled={processing}
               onClick={handleApprove}
             >
-              ✓ Approve & Re-Run Collector
-            </Button>
+              {processing ? "Applying…" : "✓ Approve & Re-Run Collector"}
+            </WebShootButton>
           </div>
         )}
       </Card>

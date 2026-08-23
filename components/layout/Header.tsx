@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SpinneretGlyph } from "@/components/ui/SpinneretGlyph";
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
@@ -16,12 +17,14 @@ export const Header: React.FC = () => {
   return (
     <header
       style={{
-        borderBottom: "1px solid var(--border-subtle)",
-        background: "rgba(10, 13, 20, 0.8)",
-        backdropFilter: "blur(12px)",
+        borderBottom: "1px solid rgba(224, 33, 47, 0.12)",
+        background: "rgba(5, 7, 13, 0.88)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
         position: "sticky",
         top: 0,
         zIndex: 50,
+        boxShadow: "0 1px 0 0 rgba(59, 111, 245, 0.08)",
       }}
     >
       <div
@@ -45,22 +48,21 @@ export const Header: React.FC = () => {
             letterSpacing: "-0.02em",
           }}
         >
+          {/* Original SpinneretGlyph circuit-web icon */}
           <span
             style={{
-              width: "28px",
-              height: "28px",
+              width: "32px",
+              height: "32px",
               borderRadius: "8px",
-              background: "linear-gradient(135deg, #6366f1, #a855f7)",
+              background: "linear-gradient(135deg, rgba(224,33,47,0.15), rgba(59,111,245,0.15))",
+              border: "1px solid rgba(224,33,47,0.25)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "0.875rem",
-              color: "#fff",
-              fontWeight: 800,
-              boxShadow: "0 0 12px rgba(99, 102, 241, 0.5)",
             }}
+            className="spinneret-glow"
           >
-            ⚡
+            <SpinneretGlyph size={22} glowing />
           </span>
           <span>SelfHeal</span>
           <span
@@ -68,11 +70,12 @@ export const Header: React.FC = () => {
               fontSize: "0.6875rem",
               padding: "0.125rem 0.5rem",
               borderRadius: "9999px",
-              backgroundColor: "rgba(99, 102, 241, 0.15)",
-              color: "#818cf8",
-              border: "1px solid rgba(99, 102, 241, 0.3)",
+              backgroundColor: "rgba(224, 33, 47, 0.12)",
+              color: "var(--accent-primary)",
+              border: "1px solid rgba(224, 33, 47, 0.25)",
               fontWeight: 600,
               textTransform: "uppercase",
+              letterSpacing: "0.04em",
             }}
           >
             Bright Data Scraper Studio
@@ -80,7 +83,7 @@ export const Header: React.FC = () => {
         </Link>
 
         {/* Navigation Tabs */}
-        <nav style={{ display: "flex", gap: "0.5rem" }}>
+        <nav style={{ display: "flex", gap: "0.25rem" }}>
           {navLinks.map((link) => {
             const isActive =
               pathname === link.href ||
@@ -90,6 +93,7 @@ export const Header: React.FC = () => {
               <Link
                 key={link.href}
                 href={link.href}
+                className={isActive ? "header-nav-active" : ""}
                 style={{
                   fontSize: "0.875rem",
                   fontWeight: 500,
@@ -97,9 +101,10 @@ export const Header: React.FC = () => {
                   borderRadius: "6px",
                   color: isActive ? "#ffffff" : "var(--text-secondary)",
                   backgroundColor: isActive
-                    ? "rgba(255, 255, 255, 0.08)"
+                    ? "rgba(224, 33, 47, 0.08)"
                     : "transparent",
                   transition: "all 0.15s ease",
+                  display: "block",
                 }}
               >
                 {link.label}
@@ -111,3 +116,4 @@ export const Header: React.FC = () => {
     </header>
   );
 };
+

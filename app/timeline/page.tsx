@@ -9,6 +9,7 @@ import { DriftEventModel } from "@/types";
 export default function TimelinePage() {
   const [events, setEvents] = useState<DriftEventModel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   const fetchEvents = async () => {
     try {
@@ -26,6 +27,8 @@ export default function TimelinePage() {
 
   useEffect(() => {
     fetchEvents();
+    const t = setTimeout(() => setMounted(true), 80);
+    return () => clearTimeout(t);
   }, []);
 
   return (
@@ -40,8 +43,18 @@ export default function TimelinePage() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: "1.875rem", fontWeight: 800, letterSpacing: "-0.03em" }}>
-            Drift Detection & AI Self-Heal Timeline
+          <h1
+            style={{
+              fontSize: "1.875rem",
+              fontWeight: 800,
+              letterSpacing: "-0.03em",
+              background: "linear-gradient(135deg, #f5f7fb, var(--accent-secondary))",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
+            Drift Detection &amp; AI Self-Heal Timeline
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.9375rem", marginTop: "0.25rem" }}>
             Auditable, end-to-end event log of schema drift, AI Flow heal requests, and human approvals.
@@ -63,13 +76,24 @@ export default function TimelinePage() {
             No Drift Events Recorded Yet
           </h3>
           <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-            Trigger a "Break & Heal Demo" from the dashboard to simulate target site structure changes and observe the self-healing workflow in real-time.
+            Trigger a "Break &amp; Heal Demo" from the dashboard to simulate target site structure
+            changes and observe the self-healing workflow in real-time.
           </p>
         </Card>
       ) : (
-        <div style={{ marginTop: "1rem" }}>
-          {events.map((event) => (
-            <TimelineItem key={event.id} event={event as any} />
+        /* ─── Glowing vertical thread container ─── */
+        <div className="timeline-thread-container" style={{ marginTop: "1rem" }}>
+          {events.map((event, idx) => (
+            <div
+              key={event.id}
+              style={{
+                opacity: mounted ? 1 : 0,
+                transform: mounted ? "translateX(0)" : "translateX(-12px)",
+                transition: `opacity 0.35s ease ${idx * 0.06}s, transform 0.35s ease ${idx * 0.06}s`,
+              }}
+            >
+              <TimelineItem event={event as any} />
+            </div>
           ))}
         </div>
       )}
