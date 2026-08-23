@@ -90,15 +90,16 @@ npm install
 ### 3. Environment Configuration
 Create a `.env` file in the root directory (or copy from `.env.example`):
 ```env
-# Local SQLite (or PostgreSQL / Neon Database URL)
-DATABASE_URL="file:./dev.db"
+# Database URL (Neon Serverless Postgres / PostgreSQL)
+DATABASE_URL="postgresql://your_user:your_password@ep-your-database-pooler.region.aws.neon.tech/neondb?sslmode=require"
+DIRECT_URL="postgresql://your_user:your_password@ep-your-database.region.aws.neon.tech/neondb?sslmode=require"
 
 # Bright Data API Credentials
-BRIGHT_DATA_API_KEY=""
-BRIGHT_DATA_CUSTOMER_ID=""
-BRIGHT_DATA_ZONE=""
+BRIGHT_DATA_API_KEY="your_bright_data_api_key_here"
+BRIGHT_DATA_CUSTOMER_ID="your_bright_data_customer_id_here"
+BRIGHT_DATA_ZONE="your_bright_data_zone_here"
 
-# Mock Simulation Mode (Set to "true" for offline testing / demos)
+# Mock Simulation Mode (Set to "true" for offline testing / demos, "false" for live API)
 BRIGHT_DATA_MOCK="true"
 
 PORT=3000
@@ -106,10 +107,10 @@ PORT=3000
 
 > **💡 Offline Simulation Mode**: When `BRIGHT_DATA_MOCK="true"`, SelfHeal runs a complete local simulation of normal scrapes, simulated DOM drift, AI code refactoring, diff generation, and verified re-runs without requiring live API keys.
 
-### 4. Database Setup
-SelfHeal uses Prisma ORM with SQLite for zero-config local setup:
+### 4. Database Setup (Neon PostgreSQL)
+SelfHeal uses **Prisma ORM** with **Neon Serverless PostgreSQL**:
 ```bash
-# Push database schema
+# Push database schema to your Neon Postgres database
 npx prisma db push
 
 # (Optional) Seed demo collectors and baseline historical data
@@ -141,106 +142,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
    * Click **✓ Approve & Re-Run Collector** to apply the fix and verify extraction against the schema contract.
 5. **Inspect Structured Output**:
    * Navigate to the **Structured Output** page (`/output`) to inspect validated JSON payloads.
-
----
-
-## 🗄️ Database Schema Reference
-
-### SQLite DDL
-```sql
-CREATE TABLE IF NOT EXISTS "Collector" (
-    "id" TEXT PRIMARY KEY,
-    "name" TEXT NOT NULL,
-    "collectorId" TEXT UNIQUE NOT NULL,
-    "targetUrl" TEXT NOT NULL,
-    "fieldSchema" TEXT NOT NULL,
-    "currentTemplate" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'healthy',
-    "lastRunAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS "Run" (
-    "id" TEXT PRIMARY KEY,
-    "collectorId" TEXT NOT NULL,
-    "status" TEXT NOT NULL,
-    "snapshotId" TEXT,
-    "rawData" TEXT,
-    "validatedData" TEXT,
-    "validationErrors" TEXT,
-    "durationMs" INTEGER,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY ("collectorId") REFERENCES "Collector"("id") ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS "DriftEvent" (
-    "id" TEXT PRIMARY KEY,
-    "collectorId" TEXT NOT NULL,
-    "runId" TEXT,
-    "fieldName" TEXT NOT NULL,
-    "expectedType" TEXT NOT NULL,
-    "receivedValue" TEXT,
-    "errorMessage" TEXT NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'detected',
-    "proposedDiff" TEXT,
-    "proposedTemplate" TEXT,
-    "healPrompt" TEXT,
-    "resolvedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY ("collectorId") REFERENCES "Collector"("id") ON DELETE CASCADE,
-    FOREIGN KEY ("runId") REFERENCES "Run"("id") ON DELETE SET NULL
-);
-```
-
-### PostgreSQL / Neon DDL
-```sql
-CREATE TABLE "Collector" (
-    "id" TEXT PRIMARY KEY,
-    "name" TEXT NOT NULL,
-    "collectorId" TEXT UNIQUE NOT NULL,
-    "targetUrl" TEXT NOT NULL,
-    "fieldSchema" TEXT NOT NULL,
-    "currentTemplate" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'healthy',
-    "lastRunAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL
-);
-
-CREATE TABLE "Run" (
-    "id" TEXT PRIMARY KEY,
-    "collectorId" TEXT NOT NULL,
-    "status" TEXT NOT NULL,
-    "snapshotId" TEXT,
-    "rawData" TEXT,
-    "validatedData" TEXT,
-    "validationErrors" TEXT,
-    "durationMs" INTEGER,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Run_collectorId_fkey" FOREIGN KEY ("collectorId") REFERENCES "Collector"("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-CREATE TABLE "DriftEvent" (
-    "id" TEXT PRIMARY KEY,
-    "collectorId" TEXT NOT NULL,
-    "runId" TEXT,
-    "fieldName" TEXT NOT NULL,
-    "expectedType" TEXT NOT NULL,
-    "receivedValue" TEXT,
-    "errorMessage" TEXT NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'detected',
-    "proposedDiff" TEXT,
-    "proposedTemplate" TEXT,
-    "healPrompt" TEXT,
-    "resolvedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "DriftEvent_collectorId_fkey" FOREIGN KEY ("collectorId") REFERENCES "Collector"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "DriftEvent_runId_fkey" FOREIGN KEY ("runId") REFERENCES "Run"("id") ON DELETE SET NULL ON UPDATE CASCADE
-);
-```
 
 ---
 
