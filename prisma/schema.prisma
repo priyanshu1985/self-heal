@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Collector {
+  id              String       @id @default(cuid())
+  name            String
+  collectorId     String       @unique // e.g. c_ecommerce_products
+  targetUrl       String
+  fieldSchema     String       // JSON string of expected fields: { fields: [{ name, type, required, description }] }
+  currentTemplate String?      // Current scraper/extractor code or template definition
+  status          String       @default("healthy") // "healthy" | "drifted" | "healing" | "pending_approval" | "resolved"
+  lastRunAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  runs            Run[]
+  driftEvents     DriftEvent[]
+}
+
+model Run {
+  id               String       @id @default(cuid())
+  collectorId      String
+  status           String       // "healthy" | "drifted" | "failed"
+  snapshotId       String?      // Bright Data Collection API snapshot ID
+  rawData          String?      // Raw JSON array/object from scraper
+  validatedData    String?      // Validated structured JSON
+  validationErrors String?      // JSON array of validation issues
+  durationMs       Int?
+  createdAt        DateTime     @default(now())
+
+  collector        Collector    @relation(fields: [collectorId], references: [id], onDelete: Cascade)
+  driftEvents      DriftEvent[]
+}
+
+model DriftEvent {
+  id               String       @id @default(cuid())
+  collectorId      String
+  runId            String?
+  fieldName        String
+  expectedType     String
+  receivedValue    String?
+  errorMessage     String
+  status           String       @default("detected") // "detected" | "healing" | "pending_approval" | "resolved" | "rejected"
+  proposedDiff     String?      // Unified diff string showing proposed code fix
+  proposedTemplate String?      // Full proposed scraper code
+  healPrompt       String?      // Prompt/field description sent to AI Flow
+  resolvedAt       DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  collector        Collector    @relation(fields: [collectorId], references: [id], onDelete: Cascade)
+  run              Run?         @relation(fields: [runId], references: [id], onDelete: SetNull)
+}
