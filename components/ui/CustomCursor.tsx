@@ -20,11 +20,23 @@ export const CustomCursor: React.FC = () => {
   const [visible, setVisible] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Register the setter globally
   useEffect(() => {
     _setMode = setMode;
     return () => { _setMode = null; };
+  }, []);
+
+  // Detect modal-open class on body
+  useEffect(() => {
+    const checkModal = () => {
+      setIsModalOpen(document.body.classList.contains("modal-open"));
+    };
+    checkModal();
+    const obs = new MutationObserver(checkModal);
+    obs.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
   }, []);
 
   // Detect touch / reduced motion on mount
@@ -92,8 +104,8 @@ export const CustomCursor: React.FC = () => {
     };
   }, [handleMouseMove, handleMouseLeave]);
 
-  // Don't render on touch or reduced motion
-  if (reducedMotion || isTouch) return null;
+  // Don't render on touch, reduced motion, or when a modal is active
+  if (reducedMotion || isTouch || isModalOpen) return null;
 
   /* ─── Mode-derived styles ─── */
 

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { WebShootButton } from "@/components/ui/WebShootButton";
+import { Modal } from "@/components/ui/Modal";
 import { NetworkHubConnector } from "@/components/ui/NetworkHubConnector";
 import { PipelineStepper, StepperState } from "@/components/ui/PipelineStepper";
 import { CollectorCardSkeleton, VitalsStripSkeleton } from "@/components/ui/Skeleton";
@@ -487,369 +488,354 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ─── Run Result Popup ─── */}
-      {runResult && (
-        <div
-          onClick={() => setRunResult(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.75)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 200,
-            padding: "1.5rem",
-            animation: "fadeInUp 0.2s ease-out both",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
+      {/* ─── Modal: Run Result Alert ─── */}
+      <Modal
+        isOpen={Boolean(runResult)}
+        onClose={() => setRunResult(null)}
+        title={
+          runResult?.type === "healthy"
+            ? "Run Complete"
+            : runResult?.type === "drifted"
+            ? "Drift Detected"
+            : "Run Failed"
+        }
+        subtitle={runResult?.collectorName}
+        maxWidth="440px"
+        footer={
+          <button
+            autoFocus
+            onClick={() => setRunResult(null)}
+            className="btn btn-primary"
             style={{
-              backgroundColor: "#0a0d17",
-              border: `1px solid ${
-                runResult.type === "healthy"
-                  ? "rgba(59,130,246,0.35)"
-                  : runResult.type === "drifted"
-                  ? "rgba(239,68,68,0.35)"
-                  : "rgba(239,68,68,0.25)"
-              }`,
-              borderRadius: "16px",
-              padding: "2.5rem 2rem",
-              maxWidth: "440px",
               width: "100%",
-              boxShadow: `0 40px 80px -16px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.03), 0 0 40px ${
-                runResult.type === "healthy"
-                  ? "rgba(59,130,246,0.12)"
-                  : "rgba(239,68,68,0.12)"
-              }`,
+              background:
+                runResult?.type === "healthy"
+                  ? "var(--accent-secondary)"
+                  : "var(--accent-primary)",
+              boxShadow:
+                runResult?.type === "healthy"
+                  ? "0 0 20px rgba(59,111,245,0.4)"
+                  : "0 0 20px rgba(224,33,47,0.4)",
+            }}
+          >
+            OK
+          </button>
+        }
+      >
+        {runResult && (
+          <div
+            style={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               textAlign: "center",
-              gap: "1.25rem",
-              animation: "fadeInUp 0.25s ease-out both",
+              gap: "1rem",
+              padding: "0.5rem 0",
             }}
           >
             {/* Status icon */}
             <div
               style={{
-                width: "64px",
-                height: "64px",
+                width: "56px",
+                height: "56px",
                 borderRadius: "50%",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "1.75rem",
+                fontSize: "1.5rem",
                 backgroundColor:
                   runResult.type === "healthy"
                     ? "rgba(59,130,246,0.15)"
-                    : runResult.type === "drifted"
-                    ? "rgba(239,68,68,0.15)"
-                    : "rgba(239,68,68,0.1)",
+                    : "rgba(239,68,68,0.15)",
                 border: `2px solid ${
                   runResult.type === "healthy"
                     ? "rgba(59,130,246,0.4)"
                     : "rgba(239,68,68,0.4)"
-                }`,
-                boxShadow: `0 0 24px ${
-                  runResult.type === "healthy"
-                    ? "rgba(59,130,246,0.25)"
-                    : "rgba(239,68,68,0.25)"
                 }`,
               }}
             >
               {runResult.type === "healthy" ? "✓" : runResult.type === "drifted" ? "⚡" : "✕"}
             </div>
 
-            {/* Title */}
-            <div>
-              <h3
-                style={{
-                  fontSize: "1.25rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.02em",
-                  marginBottom: "0.375rem",
-                  color:
-                    runResult.type === "healthy"
-                      ? "#93c5fd"
-                      : runResult.type === "drifted"
-                      ? "#fca5a5"
-                      : "#fca5a5",
-                }}
-              >
-                {runResult.type === "healthy"
-                  ? "Run Complete"
-                  : runResult.type === "drifted"
-                  ? "Drift Detected"
-                  : "Run Failed"}
-              </h3>
-              <p
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--text-muted)",
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                {runResult.collectorName}
-              </p>
-            </div>
-
-            {/* Message */}
             <p
               style={{
                 fontSize: "0.9375rem",
                 color: "var(--text-secondary)",
-                lineHeight: 1.65,
+                lineHeight: 1.6,
                 maxWidth: "340px",
               }}
             >
               {runResult.message}
             </p>
-
-            {/* OK Button */}
-            <button
-              autoFocus
-              onClick={() => setRunResult(null)}
-              className="btn btn-primary"
-              style={{
-                minWidth: "120px",
-                marginTop: "0.25rem",
-                background:
-                  runResult.type === "healthy"
-                    ? "var(--accent-secondary)"
-                    : "var(--accent-primary)",
-                boxShadow:
-                  runResult.type === "healthy"
-                    ? "0 0 20px rgba(59,111,245,0.4)"
-                    : "0 0 20px rgba(224,33,47,0.4)",
-              }}
-            >
-              OK
-            </button>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* ─── Modal: Register New Collector ─── */}
-      {showCreateModal && (
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Register Bright Data Scraper"
+        subtitle="Paste a cURL snippet from Bright Data or fill in the details below."
+        maxWidth="640px"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowCreateModal(false)}
+            >
+              Cancel
+            </Button>
+            <WebShootButton
+              type="submit"
+              form="register-collector-form"
+              className="btn btn-primary btn-sm"
+              isLoading={creating}
+              loadingText="Saving…"
+              successText="Registered!"
+              errorText="Failed"
+              disabled={creating}
+            >
+              Save &amp; Register Scraper
+            </WebShootButton>
+          </>
+        }
+      >
+        {/* Quick cURL Auto-Parser */}
         <div
           style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.85)",
-            backdropFilter: "blur(6px)",
+            padding: "0.875rem 1rem",
+            borderRadius: "10px",
+            backgroundColor: "rgba(59, 111, 245, 0.07)",
+            border: "1px dashed rgba(59, 111, 245, 0.35)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            padding: "1rem",
-            overflowY: "auto",
+            flexDirection: "column",
+            gap: "0.375rem",
           }}
         >
-          <Card
+          <label
             style={{
-              maxWidth: "650px",
-              width: "100%",
-              backgroundColor: "#0a0d17",
-              border: "1px solid rgba(59,111,245,0.2)",
-              padding: "clamp(1.25rem, 4vw, 2rem)",
-              borderRadius: "14px",
-              boxShadow: "0 30px 60px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(59,111,245,0.08)",
-              maxHeight: "90vh",
-              overflowY: "auto",
+              display: "block",
+              fontSize: "0.8125rem",
+              fontWeight: 700,
+              color: "#7eb3ff",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.25rem" }}>
-              <div>
-                <h3 style={{ fontSize: "1.25rem", fontWeight: 700 }}>Register Bright Data Scraper</h3>
-                <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                  Paste a cURL snippet from Bright Data or fill in the details below.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "1.25rem" }}
-              >
-                ✕
-              </button>
-            </div>
+            ⚡ Quick Import: Paste Bright Data cURL command
+          </label>
+          <input
+            type="text"
+            placeholder='Paste curl -H "Authorization: Bearer..." "https://api.brightdata.com/datasets/v3/scrape?dataset_id=..."'
+            value={curlInput}
+            onChange={(e) => handleParseCurl(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "0.55rem 0.75rem",
+              borderRadius: "6px",
+              backgroundColor: "#05070a",
+              border: "1px solid var(--border-subtle)",
+              color: "#38bdf8",
+              fontSize: "0.75rem",
+              fontFamily: "ui-monospace, monospace",
+            }}
+          />
+          <span
+            style={{
+              fontSize: "0.6875rem",
+              color: "var(--text-muted)",
+              display: "block",
+            }}
+          >
+            Automatically extracts Scraper ID, Target URL, and selects matching schema.
+          </span>
+        </div>
 
-            {/* Quick cURL Auto-Parser */}
-            <div
-              style={{
-                marginBottom: "1.25rem",
-                padding: "1rem",
-                borderRadius: "8px",
-                backgroundColor: "rgba(59, 111, 245, 0.07)",
-                border: "1px dashed rgba(59, 111, 245, 0.3)",
-              }}
-            >
-              <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 700, color: "#7eb3ff", marginBottom: "0.375rem" }}>
-                ⚡ Quick Import: Paste Bright Data cURL command
+        <form
+          id="register-collector-form"
+          onSubmit={handleCreateCollector}
+          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
+              gap: "1rem",
+            }}
+          >
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                  color: "var(--text-secondary)",
+                  marginBottom: "0.375rem",
+                }}
+              >
+                Display Name
               </label>
               <input
                 type="text"
-                placeholder='Paste curl -H "Authorization: Bearer..." "https://api.brightdata.com/datasets/v3/scrape?dataset_id=..."'
-                value={curlInput}
-                onChange={(e) => handleParseCurl(e.target.value)}
+                required
+                placeholder="e.g. Instagram Profiles"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "0.5rem 0.75rem",
+                  padding: "0.55rem 0.75rem",
                   borderRadius: "6px",
                   backgroundColor: "#05070a",
                   border: "1px solid var(--border-subtle)",
-                  color: "#38bdf8",
-                  fontSize: "0.75rem",
-                  fontFamily: "monospace",
+                  color: "#fff",
+                  fontSize: "0.8125rem",
                 }}
               />
-              <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", display: "block", marginTop: "0.25rem" }}>
-                Automatically extracts Scraper ID, Target URL, and selects matching schema.
-              </span>
             </div>
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                  color: "var(--text-secondary)",
+                  marginBottom: "0.375rem",
+                }}
+              >
+                Scraper ID / Dataset ID
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. gd_l1vikfch901nx3by4"
+                value={newCollectorId}
+                onChange={(e) => setNewCollectorId(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.55rem 0.75rem",
+                  borderRadius: "6px",
+                  backgroundColor: "#05070a",
+                  border: "1px solid var(--border-subtle)",
+                  color: "#a5b4fc",
+                  fontSize: "0.8125rem",
+                  fontFamily: "ui-monospace, monospace",
+                }}
+              />
+            </div>
+          </div>
 
-            <form onSubmit={handleCreateCollector} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 250px), 1fr))", gap: "1rem" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.375rem" }}>
-                    Display Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Instagram Profiles"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "0.55rem 0.75rem",
-                      borderRadius: "6px",
-                      backgroundColor: "#05070a",
-                      border: "1px solid var(--border-subtle)",
-                      color: "#fff",
-                      fontSize: "0.8125rem",
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.375rem" }}>
-                    Scraper ID / Dataset ID
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. gd_l1vikfch901nx3by4"
-                    value={newCollectorId}
-                    onChange={(e) => setNewCollectorId(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "0.55rem 0.75rem",
-                      borderRadius: "6px",
-                      backgroundColor: "#05070a",
-                      border: "1px solid var(--border-subtle)",
-                      color: "#a5b4fc",
-                      fontSize: "0.8125rem",
-                      fontFamily: "monospace",
-                    }}
-                  />
-                </div>
-              </div>
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                marginBottom: "0.375rem",
+              }}
+            >
+              Target Website URL
+            </label>
+            <input
+              type="url"
+              required
+              placeholder="https://www.instagram.com/cats_of_world_/"
+              value={newTargetUrl}
+              onChange={(e) => setNewTargetUrl(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.55rem 0.75rem",
+                borderRadius: "6px",
+                backgroundColor: "#05070a",
+                border: "1px solid var(--border-subtle)",
+                color: "#fff",
+                fontSize: "0.8125rem",
+              }}
+            />
+          </div>
 
-              <div>
-                <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.375rem" }}>
-                  Target Website URL
-                </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://www.instagram.com/cats_of_world_/"
-                  value={newTargetUrl}
-                  onChange={(e) => setNewTargetUrl(e.target.value)}
+          {/* Schema Presets */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                marginBottom: "0.375rem",
+              }}
+            >
+              Schema Template Presets (1-Click)
+            </label>
+            <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
+              {Object.entries(SCHEMA_PRESETS).map(([key, preset]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => applyPreset(key as keyof typeof SCHEMA_PRESETS)}
                   style={{
-                    width: "100%",
-                    padding: "0.55rem 0.75rem",
+                    padding: "0.375rem 0.65rem",
                     borderRadius: "6px",
-                    backgroundColor: "#05070a",
-                    border: "1px solid var(--border-subtle)",
-                    color: "#fff",
-                    fontSize: "0.8125rem",
-                  }}
-                />
-              </div>
-
-              {/* Schema Presets */}
-              <div>
-                <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.375rem" }}>
-                  Schema Template Presets (1-Click)
-                </label>
-                <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}>
-                  {Object.entries(SCHEMA_PRESETS).map(([key, preset]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => applyPreset(key as keyof typeof SCHEMA_PRESETS)}
-                      style={{
-                        padding: "0.35rem 0.65rem",
-                        borderRadius: "6px",
-                        fontSize: "0.75rem",
-                        backgroundColor: "rgba(255, 255, 255, 0.05)",
-                        border: "1px solid var(--border-subtle)",
-                        color: "#cbd5e1",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.375rem" }}>
-                  Expected Field Schema (Zod Contract JSON)
-                </label>
-                <textarea
-                  rows={5}
-                  value={newFieldsJson}
-                  onChange={(e) => setNewFieldsJson(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "0.55rem 0.75rem",
-                    borderRadius: "6px",
-                    backgroundColor: "#05070a",
-                    border: "1px solid var(--border-subtle)",
-                    color: "#38bdf8",
-                    fontFamily: "monospace",
                     fontSize: "0.75rem",
+                    fontWeight: 500,
+                    backgroundColor: "rgba(255, 255, 255, 0.05)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "#cbd5e1",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
                   }}
-                />
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.75rem" }}>
-                <Button type="button" variant="secondary" size="sm" onClick={() => setShowCreateModal(false)}>
-                  Cancel
-                </Button>
-                {/* WebShootButton for the Save action */}
-                <WebShootButton
-                  type="submit"
-                  className="btn btn-primary btn-sm"
-                  disabled={creating}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "rgba(59, 111, 245, 0.15)";
+                    e.currentTarget.style.borderColor = "rgba(59, 111, 245, 0.4)";
+                    e.currentTarget.style.color = "#ffffff";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
+                    e.currentTarget.style.borderColor = "var(--border-subtle)";
+                    e.currentTarget.style.color = "#cbd5e1";
+                  }}
                 >
-                  {creating ? "Saving…" : "Save & Register Scraper"}
-                </WebShootButton>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                marginBottom: "0.375rem",
+              }}
+            >
+              Expected Field Schema (Zod Contract JSON)
+            </label>
+            <textarea
+              rows={6}
+              value={newFieldsJson}
+              onChange={(e) => setNewFieldsJson(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.65rem 0.75rem",
+                borderRadius: "6px",
+                backgroundColor: "#05070a",
+                border: "1px solid var(--border-subtle)",
+                color: "#38bdf8",
+                fontFamily: "ui-monospace, monospace",
+                fontSize: "0.75rem",
+                lineHeight: 1.45,
+                resize: "vertical",
+                minHeight: "110px",
+                maxHeight: "220px",
+              }}
+            />
+          </div>
+        </form>
+      </Modal>
 
       {/* ─── Collector List ─── */}
       <div>

@@ -13,6 +13,7 @@ interface WebShootButtonProps {
   style?: React.CSSProperties;
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
+  form?: string;
   title?: string;
   isLoading?: boolean;
   status?: ButtonStatus;
@@ -37,6 +38,7 @@ export const WebShootButton: React.FC<WebShootButtonProps> = ({
   style,
   disabled,
   type = "button",
+  form,
   title,
   isLoading = false,
   status: controlledStatus,
@@ -224,6 +226,7 @@ export const WebShootButton: React.FC<WebShootButtonProps> = ({
     <button
       ref={btnRef}
       type={type}
+      form={form}
       className={className}
       style={{
         position: "relative",
